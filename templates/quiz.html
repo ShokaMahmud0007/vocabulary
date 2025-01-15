@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English to Bangla Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        h1 {
+            text-align: center;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #meaning-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>English to Bangla Quiz</h1>
+        <div id="word-display">Press "Start" to begin the quiz!</div>
+        <div id="meaning-container">
+            <p id="meaning-display" style="display:none;"></p>
+            <button id="show-meaning-btn" onclick="showMeaning()">Show Meaning</button>
+            <button id="correct-btn" onclick="answer(true)">Correct</button>
+            <button id="incorrect-btn" onclick="answer(false)">Incorrect</button>
+            <button id="never-repeat-btn" onclick="markNeverRepeat()">Never Repeat</button>
+        </div>
+        <button id="start-btn" onclick="getWord()">Start</button>
+        <button id="finish-btn" onclick="finishQuiz()">Finish Quiz</button>
+        <h3 id="score-display">Score: 0</h3>
+    </div>
+
+    <script>
+        let currentWord = "";
+        const username = "{{ username }}";  // Get the username from Flask
+    
+        function getWord() {
+            fetch(`/get_word/${username}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById("word-display").innerText = data.error;
+                        document.getElementById("meaning-container").style.display = "none";
+                    } else {
+                        currentWord = data.word;
+                        document.getElementById("word-display").innerText = `Word: ${data.word}`;
+                        document.getElementById("meaning-display").innerText = `Meaning: ${data.meaning}`;
+    
+                        // Make sure the meaning-container is visible every time a new word is fetched
+                        document.getElementById("meaning-container").style.display = "block";
+                        document.getElementById("meaning-display").style.display = "none";  // Hide meaning initially
+                        document.getElementById("show-meaning-btn").style.display = "block";  // Show the button to show meaning
+                    }
+                });
+        }
+    
+        function showMeaning() {
+            document.getElementById("meaning-display").style.display = "block";
+            document.getElementById("show-meaning-btn").style.display = "none"; 
+        }
+    
+        function answer(correct) {
+            fetch('/answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ word: currentWord, correct: correct, username: username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("score-display").innerText = `Score: ${data.score}`;
+                getWord();
+            });
+        }
+    
+        function markNeverRepeat() {
+            fetch('/answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ word: currentWord, action: "never_repeat", username: username })
+            })
+            .then(() => getWord());
+        }
+    
+        function finishQuiz() {
+    fetch('/finish')
+        .then(response => response.json())
+        .then(data => {
+            document.body.innerHTML = `
+                <h1>Quiz Finished!</h1>
+                <p>Your Final Score: ${data.score} out of ${data.total}</p>
+                <button onclick="restartQuiz()">Restart Quiz</button>
+            `;
+        });
+}
+
+function restartQuiz() {
+    // Send a request to Flask to reset the session variables
+    fetch('/restart_quiz', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: username })  // Pass the username
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // After resetting the session, reload the page to start fresh
+            window.location.reload();
+        } else {
+            alert("There was an error restarting the quiz.");
+        }
+    });
+}
+
+    </script>
+    
+</body>
+</html>
